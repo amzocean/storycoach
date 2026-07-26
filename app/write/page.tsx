@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -72,9 +72,55 @@ const PROBLEMS = [
   { emoji: '🗺️', label: 'lost on a big adventure' },
 ];
 
-const WORDS_TO_UNLOCK = 12;
-
 const wordCount = (t: string) => t.trim().split(/\s+/).filter(Boolean).length;
+
+// Duolingo-style writing challenges. Each page is a bite-sized quest that trains
+// one "writing muscle" (see STORY_COACH_CONTEXT.md Learning Journey). The prompt
+// is the coach's headline; hitting the word goal completes the challenge for XP.
+interface Ctx { heroName: string; hero: string; setting: string; problem: string }
+interface Quest {
+  skill: string;
+  emoji: string;
+  mission: string;
+  target: number;
+  xp: number;
+  prompt: (c: Ctx) => string;
+}
+
+const QUESTS: Quest[] = [
+  {
+    skill: 'Imagination', emoji: '💡', mission: 'Introduce your hero', target: 8, xp: 10,
+    prompt: (c) => `Meet your hero! Write one sentence to introduce ${c.heroName} the ${c.hero} in ${c.setting}.`,
+  },
+  {
+    skill: 'Description', emoji: '🎨', mission: 'Paint the scene', target: 15, xp: 15,
+    prompt: (c) => `Paint the picture! What does ${c.setting} look, sound, or smell like to ${c.heroName}?`,
+  },
+  {
+    skill: 'Emotion', emoji: '❤️', mission: 'Show a feeling', target: 15, xp: 15,
+    prompt: (c) => `How does ${c.heroName} feel right now? Show it with your words!`,
+  },
+  {
+    skill: 'Story Structure', emoji: '🧩', mission: 'Bring in the problem', target: 18, xp: 20,
+    prompt: (c) => `Uh oh! The big problem appears — ${c.problem}. What goes wrong for ${c.heroName}?`,
+  },
+  {
+    skill: 'Dialogue', emoji: '💬', mission: 'Give your hero a voice', target: 15, xp: 20,
+    prompt: (c) => `Let ${c.heroName} speak! Write something your hero says out loud.`,
+  },
+  {
+    skill: 'Confidence', emoji: '🌟', mission: 'Save the day', target: 18, xp: 25,
+    prompt: (c) => `The big finish! How does ${c.heroName} solve the problem and save the day?`,
+  },
+];
+
+const BONUS_QUEST: Quest = {
+  skill: 'Adventure', emoji: '🚀', mission: 'Keep the story going', target: 15, xp: 15,
+  prompt: (c) => `Keep going! What amazing thing happens next for ${c.heroName}?`,
+};
+
+const questFor = (i: number): Quest => QUESTS[i] || BONUS_QUEST;
+const levelFor = (xp: number) => Math.floor(xp / 60) + 1;
 
 export default function WritePage() {
   const router = useRouter();
@@ -113,6 +159,30 @@ export default function WritePage() {
   const [title, setTitle] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [coverImage, setCoverImage] = useState('');
+
+  // Gamification
+  const [xp, setXp] = useState(0);
+  const [completed, setCompleted] = useState<Set<number>>(new Set());
+  const [toast, setToast] = useState('');
+
+  const fireToast = (msg: string) => setToast(msg);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(''), 2600);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  // Award XP when a page's writing challenge is completed (hits its word goal).
+  useEffect(() => {
+    const p = pages[current];
+    if (!p) return;
+    const q = questFor(current);
+    if (wordCount(p.text) >= q.target && !completed.has(current)) {
+      setCompleted((prev) => new Set(prev).add(current));
+      setXp((x) => x + q.xp);
+      fireToast(`✅ ${q.skill} challenge complete!  +${q.xp} XP`);
+    }
+  }, [pages, current, completed]);
 
   const storyContext = () =>
     `${heroName} the ${hero} in ${setting}, ${problem}. Story: ${pages.map((p) => p.text).join(' ')}`;
@@ -188,6 +258,8 @@ export default function WritePage() {
           i === current ? { ...p, image_path: data.imageUrl, imagePrompt: data.imagePrompt, illustrating: false } : p
         )
       );
+      setXp((x) => x + 20);
+      fireToast('🎨 Illustration unlocked!  +20 XP');
     } catch (e: any) {
       setError(e.message || 'Could not draw the picture — try again!');
       setPages((prev) => prev.map((p, i) => (i === current ? { ...p, illustrating: false } : p)));
@@ -247,6 +319,8 @@ export default function WritePage() {
       )
     );
     setHandled((prev) => new Set(prev).add(idx));
+    setXp((x) => x + 5);
+    fireToast('✏️ Revision power! +5 XP');
   };
   const ignoreSuggestion = (idx: number) => setHandled((prev) => new Set(prev).add(idx));
 
@@ -321,15 +395,15 @@ export default function WritePage() {
   // ============================ UI ============================
   const page = pages[current];
   const words = page ? wordCount(page.text) : 0;
-  const canUnlock = words >= WORDS_TO_UNLOCK && !page?.image_path && !page?.illustrating;
+  const quest = questFor(current);
+  const challengeDone = words >= quest.target;
+  const goalPct = Math.min(100, Math.round((words / quest.target) * 100));
+  const canUnlock = challengeDone && !page?.image_path && !page?.illustrating;
+  const ctx: Ctx = { heroName: heroName || 'your hero', hero: hero || 'hero', setting: setting || 'your world', problem: problem || 'a big challenge' };
 
-  // The coach always leads with a prompt as the headline.
-  const firstPrompt = `Let's begin! Write one sentence to introduce ${heroName || 'your hero'} the ${hero || 'hero'} in ${setting || 'your world'}.`;
-  const headlinePrompt = coach?.question
-    ? coach.question
-    : current === 0
-    ? firstPrompt
-    : `What happens next for ${heroName || 'your hero'}?`;
+  // The coach always leads with a prompt as the headline (quest prompt, or the
+  // coach's follow-up question after "Coach me").
+  const headlinePrompt = coach?.question ? coach.question : quest.prompt(ctx);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-300 via-sky-200 to-emerald-100 pb-24">
@@ -342,6 +416,11 @@ export default function WritePage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-6">
+        {toast && (
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-extrabold px-6 py-3 rounded-full shadow-2xl animate-bounce">
+            {toast}
+          </div>
+        )}
         {error && (
           <div className="mb-4 bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-xl text-sm shadow whitespace-pre-line">
             ⚠️ {error}
@@ -464,30 +543,49 @@ export default function WritePage() {
         {/* WRITE */}
         {stage === 'write' && page && (
           <div>
+            {/* XP / level bar */}
+            <div className="bg-white/85 rounded-2xl px-4 py-3 mb-3 shadow-sm flex items-center gap-3">
+              <div className="shrink-0 flex items-center gap-1.5 bg-amber-100 text-amber-800 font-extrabold rounded-full px-3 py-1 text-sm">
+                ⭐ {xp} XP
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between text-[11px] font-bold text-gray-500 mb-1">
+                  <span>Level {levelFor(xp)} Writer</span>
+                  <span>{completed.size}/{pages.length} challenges</span>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all" style={{ width: `${(xp % 60) / 60 * 100}%` }} />
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white/70 rounded-2xl px-4 py-2 mb-4 text-sm text-gray-700 shadow-sm">
               <b>{heroName}</b> the {hero} · {setting} · {problem}
             </div>
 
-            {/* page tabs */}
+            {/* quest medals / page tabs */}
             <div className="flex gap-2 overflow-x-auto pb-2 mb-3 hide-scrollbar">
               {pages.map((p, i) => (
                 <button
                   key={i}
                   onClick={() => goToPage(i)}
-                  className={`shrink-0 w-9 h-9 rounded-full text-sm font-bold border-2 flex items-center justify-center ${
-                    i === current ? 'bg-purple-500 text-white border-purple-500' : p.text.trim() ? 'bg-white text-purple-600 border-purple-300' : 'bg-white text-gray-400 border-gray-200'
+                  className={`shrink-0 w-10 h-10 rounded-full text-sm font-bold border-2 flex items-center justify-center transition-all ${
+                    i === current ? 'bg-purple-500 text-white border-purple-500 scale-110' : completed.has(i) ? 'bg-emerald-100 text-emerald-600 border-emerald-300' : p.text.trim() ? 'bg-white text-purple-600 border-purple-300' : 'bg-white text-gray-400 border-gray-200'
                   }`}
-                  title={`Page ${i + 1}`}
+                  title={`${questFor(i).skill} challenge`}
                 >
-                  {p.image_path ? '⭐' : i + 1}
+                  {p.image_path ? '⭐' : completed.has(i) ? '✓' : i + 1}
                 </button>
               ))}
             </div>
 
             <div className="bg-white/85 backdrop-blur-sm border-4 border-yellow-300 rounded-3xl p-5 sm:p-7 shadow-xl">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-extrabold tracking-wide text-purple-400">PAGE {current + 1}</span>
-                <span className="text-xs text-gray-400">{words} words</span>
+              {/* challenge chip */}
+              <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 bg-purple-100 text-purple-700 font-extrabold rounded-full px-3 py-1 text-xs">
+                  {quest.emoji} Challenge {current + 1}: {quest.skill}
+                </span>
+                <span className="text-xs font-bold text-amber-600">🏆 +{quest.xp} XP · {quest.mission}</span>
               </div>
 
               {/* Coach prompt — the main headline */}
@@ -505,6 +603,19 @@ export default function WritePage() {
                 className="w-full min-h-[140px] p-4 rounded-2xl border-2 border-gray-200 focus:border-purple-400 outline-none text-gray-800 text-lg leading-relaxed resize-y"
                 autoFocus
               />
+
+              {/* challenge goal bar */}
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+                  <span className={challengeDone ? 'text-emerald-600' : 'text-gray-500'}>
+                    {challengeDone ? '✅ Challenge complete — picture unlocked!' : `Keep writing to complete this challenge`}
+                  </span>
+                  <span className="text-gray-400">{words}/{quest.target} words</span>
+                </div>
+                <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div className={`h-full transition-all ${challengeDone ? 'bg-emerald-400' : 'bg-purple-400'}`} style={{ width: `${goalPct}%` }} />
+                </div>
+              </div>
 
               {page.image_path && (
                 <div className="mt-4">
@@ -532,7 +643,7 @@ export default function WritePage() {
                   onClick={unlockIllustration}
                   disabled={!canUnlock}
                   className="px-4 py-2.5 bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-amber-900 rounded-xl font-bold text-sm shadow"
-                  title={canUnlock ? 'Unlock a picture!' : `Write ${WORDS_TO_UNLOCK}+ words to unlock a picture`}
+                  title={canUnlock ? 'Unlock a picture!' : 'Complete the challenge to unlock a picture'}
                 >
                   🎨 Unlock picture
                 </button>
@@ -544,9 +655,6 @@ export default function WritePage() {
                   ➕ Next page
                 </button>
               </div>
-              {!canUnlock && !page.image_path && !page.illustrating && (
-                <p className="text-xs text-gray-400 mt-2">✏️ Write {Math.max(0, WORDS_TO_UNLOCK - words)} more words to unlock a picture.</p>
-              )}
             </div>
 
             {/* coach panel — praise + optional tip/ideas (the question is the headline above) */}
