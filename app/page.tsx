@@ -4,19 +4,19 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 
 const STORY_CTAS = [
-  '💡 I Have a Story Idea!',
-  '✨ Imagine a Story!',
-  '🌟 Create a Story!',
+  '🚀 Start a New Story Quest',
+  '✨ Build My Adventure Book',
+  '🌟 Begin My Writing Mission',
 ];
 
 const HERO_MASCOTS = ['🦖', '🦄', '🐉', '🧙‍♂️', '🧜‍♀️', '🦊', '🐻', '🚀', '🧚', '🌈'];
 const HERO_MESSAGES = [
-  'Every great story starts with YOU!',
-  'What adventure will you create today?',
-  'Your imagination is the only limit!',
-  'Ready to write something amazing?',
-  'The best stories come from kids like you!',
-  'Dream it. Write it. Share it!',
+  'Kid ideas. Coach support. Epic stories.',
+  'Turn imagination into a real adventure book.',
+  'Write together, celebrate progress, and level up.',
+  'Your next story quest starts right here.',
+  'Create, read, and earn stars with every page.',
+  'Dream it. Write it. Unlock it.',
 ];
 
 interface Story {
@@ -64,8 +64,12 @@ export default function HomePage() {
       fetch('/api/stories').then(r => r.json()),
       fetch('/api/categories').then(r => r.json()),
     ]).then(([storiesData, categoriesData]) => {
-      setStories(storiesData);
-      setCategories(categoriesData);
+      setStories(Array.isArray(storiesData) ? storiesData : []);
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      setLoading(false);
+    }).catch(() => {
+      setStories([]);
+      setCategories([]);
       setLoading(false);
     });
   }, []);
@@ -86,6 +90,7 @@ export default function HomePage() {
   });
 
   const getCategoryInfo = (catId: string) => categories.find(c => c.id === catId);
+  const totalPages = stories.reduce((sum, story) => sum + (story.page_count || 0), 0);
 
   if (loading) {
     return (
@@ -110,26 +115,26 @@ export default function HomePage() {
 
       {/* Header */}
       <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <Link href="/" className="flex items-center gap-2 sm:gap-3">
             <span className="text-3xl sm:text-4xl animate-wiggle">✨</span>
             <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white drop-shadow-lg">
-              Story Sparks
+              Story Coach
             </h1>
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setShowHowItWorks(true)}
-              className="px-4 py-2 sm:py-2.5 bg-white/20 hover:bg-white/30 rounded-full text-white text-xs sm:text-sm font-semibold transition-all whitespace-nowrap"
+              className="hidden sm:inline-flex px-4 py-2 sm:py-2.5 bg-white/20 hover:bg-white/30 rounded-full text-white text-xs sm:text-sm font-semibold transition-all whitespace-nowrap"
             >
-              How It Works
+              Coach Guide
             </button>
             <Link
               href="/admin/create"
               className="px-5 sm:px-6 py-2.5 sm:py-3 bg-yellow-400 hover:bg-yellow-300 text-gray-900 rounded-full text-sm sm:text-base font-extrabold transition-all shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 animate-pulse hover:animate-none whitespace-nowrap"
               title="Create Story"
             >
-              ✏️ Create!
+              🚀 Start Quest
             </Link>
           </div>
         </div>
@@ -145,22 +150,22 @@ export default function HomePage() {
             <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-gray-800 mb-1">
               {HERO_MESSAGES[Math.floor(Math.random() * HERO_MESSAGES.length)]}
             </h2>
-            <p className="text-gray-500 text-sm sm:text-base mb-4">Spark your imagination and create stories with AI ✨</p>
-            <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-5 max-w-lg mx-auto text-center">
+            <p className="text-gray-600 text-sm sm:text-base mb-4">A kid-first writing adventure where grownups coach and kids stay the author.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-5 max-w-lg mx-auto text-center">
               <div className="bg-purple-50 rounded-2xl p-3 sm:p-4">
                 <div className="text-3xl sm:text-4xl mb-1">💡</div>
-                <p className="text-xs sm:text-sm font-bold text-purple-700">Share an idea</p>
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">Just a sentence is enough!</p>
+                <p className="text-xs sm:text-sm font-bold text-purple-700">Choose a mission</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">Pick theme, level, and page goal.</p>
               </div>
               <div className="bg-pink-50 rounded-2xl p-3 sm:p-4">
                 <div className="text-3xl sm:text-4xl mb-1">✍️</div>
-                <p className="text-xs sm:text-sm font-bold text-pink-700">Write & edit</p>
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">Co-author with AI or write it all yourself</p>
+                <p className="text-xs sm:text-sm font-bold text-pink-700">Write together</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">Kids write. Coach guides. AI assists.</p>
               </div>
               <div className="bg-amber-50 rounded-2xl p-3 sm:p-4">
                 <div className="text-3xl sm:text-4xl mb-1">🎨</div>
-                <p className="text-xs sm:text-sm font-bold text-amber-700">AI illustrates</p>
-                <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">Beautiful pictures bring your story to life</p>
+                <p className="text-xs sm:text-sm font-bold text-amber-700">Unlock art</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">Earn stars and publish your book.</p>
               </div>
             </div>
             <Link
@@ -169,6 +174,26 @@ export default function HomePage() {
             >
               {storyCta}
             </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-4">
+        <div className="bg-white/80 backdrop-blur-sm border-2 border-white rounded-3xl p-4 sm:p-6 shadow-lg">
+          <h3 className="text-base sm:text-lg font-extrabold text-gray-800 mb-3">🏆 Quest Board</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="bg-violet-50 rounded-2xl p-3">
+              <p className="text-violet-700 font-bold text-sm">Books in Library</p>
+              <p className="text-2xl font-extrabold text-violet-900">{stories.length}</p>
+            </div>
+            <div className="bg-sky-50 rounded-2xl p-3">
+              <p className="text-sky-700 font-bold text-sm">Pages Created</p>
+              <p className="text-2xl font-extrabold text-sky-900">{totalPages}</p>
+            </div>
+            <div className="bg-amber-50 rounded-2xl p-3">
+              <p className="text-amber-700 font-bold text-sm">Active Genres</p>
+              <p className="text-2xl font-extrabold text-amber-900">{categories.length}</p>
+            </div>
           </div>
         </div>
       </section>
@@ -204,7 +229,7 @@ export default function HomePage() {
 
       {/* Category Filter */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-2">
-        <h2 className="text-xl sm:text-2xl font-extrabold text-gray-700 mb-3 sm:mb-4">🗂️ Pick a Category!</h2>
+        <h2 className="text-xl sm:text-2xl font-extrabold text-gray-700 mb-3 sm:mb-4">🗂️ Pick a Story World</h2>
         <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-3 hide-scrollbar">
           <button
             onClick={() => setSelectedCategory('all')}
@@ -235,7 +260,7 @@ export default function HomePage() {
 
       {/* Reader Level Filter */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 pb-4 sm:pb-6">
-        <h2 className="text-lg sm:text-xl font-extrabold text-gray-700 mb-2 sm:mb-3">📏 Reader Level</h2>
+        <h2 className="text-lg sm:text-xl font-extrabold text-gray-700 mb-2 sm:mb-3">📏 Reading Level Quest</h2>
         <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-3 hide-scrollbar">
           {readerLevels.map(level => (
             <button
@@ -273,7 +298,7 @@ export default function HomePage() {
         ) : (
           <>
             <h2 className="text-xl sm:text-2xl font-extrabold text-gray-700 mb-4 sm:mb-6">
-              {selectedCategory === 'all' ? '📚 All Adventures' : `${getCategoryInfo(selectedCategory)?.emoji} ${getCategoryInfo(selectedCategory)?.name} Stories`}
+              {selectedCategory === 'all' ? '📚 Adventure Library' : `${getCategoryInfo(selectedCategory)?.emoji} ${getCategoryInfo(selectedCategory)?.name} Adventures`}
             </h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
               {filteredStories.map(story => {
@@ -296,6 +321,11 @@ export default function HomePage() {
                       <div className="absolute top-2 right-2">
                         <span className="text-xs px-2 py-0.5 rounded-full bg-white/90 text-gray-700 font-bold shadow">
                           {story.age_range ? `Ages ${story.age_range}` : 'Ages 5-7'}
+                        </span>
+                      </div>
+                      <div className="absolute top-2 left-2">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-300 text-yellow-900 font-extrabold shadow">
+                          ⭐ {Math.max(1, story.page_count) * 10} XP
                         </span>
                       </div>
                       <div className="absolute bottom-0 p-3 sm:p-4">
@@ -327,7 +357,7 @@ export default function HomePage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowHowItWorks(false)}>
           <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-6 sm:p-8" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-2xl font-extrabold text-gray-800">✨ How It Works</h2>
+              <h2 className="text-2xl font-extrabold text-gray-800">✨ Coach Guide</h2>
               <button onClick={() => setShowHowItWorks(false)} className="w-9 h-9 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center text-xl transition-all">✕</button>
             </div>
 
@@ -335,54 +365,54 @@ export default function HomePage() {
               <div className="flex gap-4 items-start">
                 <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-xl flex-shrink-0 font-bold text-purple-600">1</div>
                 <div>
-                  <h3 className="font-bold text-gray-800 text-base">💡 Start with an idea</h3>
-                  <p className="text-gray-500 text-sm mt-1">Type any story idea — &quot;A brave kitten who learns to fly&quot; or &quot;My trip to the moon.&quot; Pick a category, choose a reading level, and how many pages you want.</p>
+                  <h3 className="font-bold text-gray-800 text-base">💡 Pick the mission</h3>
+                  <p className="text-gray-500 text-sm mt-1">Choose the story world, reading level, and page goal. Keep it short and playful to help your child start fast.</p>
                 </div>
               </div>
 
               <div className="flex gap-4 items-start">
                 <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-xl flex-shrink-0 font-bold text-blue-600">2</div>
                 <div>
-                  <h3 className="font-bold text-gray-800 text-base">🤖 AI writes a draft</h3>
-                  <p className="text-gray-500 text-sm mt-1">AI creates a full story outline with text for every page. You&apos;ll see the complete story before any pictures are made.</p>
+                  <h3 className="font-bold text-gray-800 text-base">🤖 Get a first draft</h3>
+                  <p className="text-gray-500 text-sm mt-1">AI gives a starter draft so your child never faces a blank page. You can also start fully blank.</p>
                 </div>
               </div>
 
               <div className="flex gap-4 items-start">
                 <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center text-xl flex-shrink-0 font-bold text-pink-600">3</div>
                 <div>
-                  <h3 className="font-bold text-gray-800 text-base">✍️ Make it yours</h3>
-                  <p className="text-gray-500 text-sm mt-1">This is the fun part! Edit any page in your own words, use <strong>&quot;Make It Shine&quot;</strong> to polish your writing, or hit <strong>&quot;Surprise Me&quot;</strong> for a fresh take. Write the whole thing yourself or let AI help — it&apos;s up to you!</p>
+                  <h3 className="font-bold text-gray-800 text-base">✍️ Let the kid lead</h3>
+                  <p className="text-gray-500 text-sm mt-1">Use coaching prompts, celebrate edits, and keep the child&apos;s voice. Stars are earned for pages the child improves.</p>
                 </div>
               </div>
 
               <div className="flex gap-4 items-start">
                 <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center text-xl flex-shrink-0 font-bold text-amber-600">4</div>
                 <div>
-                  <h3 className="font-bold text-gray-800 text-base">🎨 AI draws the pictures</h3>
-                  <p className="text-gray-500 text-sm mt-1">Hit &quot;Generate Illustrations&quot; and AI creates beautiful, colorful pictures for every page that match your story. Play a mini star-catching game while you wait!</p>
+                  <h3 className="font-bold text-gray-800 text-base">🎨 Unlock illustrations</h3>
+                  <p className="text-gray-500 text-sm mt-1">Generate art for every page and keep energy high with the mini-game while images are created.</p>
                 </div>
               </div>
 
               <div className="flex gap-4 items-start">
                 <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-xl flex-shrink-0 font-bold text-green-600">5</div>
                 <div>
-                  <h3 className="font-bold text-gray-800 text-base">📖 Publish & share</h3>
-                  <p className="text-gray-500 text-sm mt-1">Your story gets a cover and appears in the library for everyone to read! Share the link with friends and family.</p>
+                  <h3 className="font-bold text-gray-800 text-base">📖 Launch the book</h3>
+                  <p className="text-gray-500 text-sm mt-1">Publish to the library, revisit favorite books, and track your child&apos;s writing streak over time.</p>
                 </div>
               </div>
             </div>
 
             <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl text-center">
               <p className="text-sm text-gray-600 mb-3">
-                <strong>You</strong>{' '}decide how much to write. Give just an idea 💡, co-author with AI 🤝, or write every word yourself ✨ — you&apos;ll get credit for your work!
+                Child voice stays first. Use AI as a helper, not a replacement, and celebrate every page your child writes.
               </p>
               <Link
                 href="/admin/create"
                 onClick={() => setShowHowItWorks(false)}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-full text-sm shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all"
               >
-                ✏️ Start Creating!
+                🚀 Start Story Quest
               </Link>
             </div>
           </div>
@@ -392,7 +422,7 @@ export default function HomePage() {
       {/* Fun footer */}
       <footer className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 py-4 text-center">
         <p className="text-white font-bold text-sm sm:text-base">
-          Made with 💖 for Burhanuddin — Sparking stories for kids everywhere ✨
+          Made for young storytellers and their coaches ✨
         </p>
         <div className="mt-2 flex items-center justify-center gap-3 text-white/80 text-xs sm:text-sm">
           <a href="mailto:storysparks.fun@gmail.com" className="hover:text-white underline underline-offset-2 transition-colors">

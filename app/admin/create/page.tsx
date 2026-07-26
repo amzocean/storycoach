@@ -365,30 +365,30 @@ export default function CreateStoryPage() {
       <div className="absolute bottom-40 right-10 text-4xl animate-wiggle opacity-30 pointer-events-none">🦕</div>
 
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 shadow-lg px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+      <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 shadow-lg px-4 sm:px-6 py-3 sm:py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
           <button onClick={() => router.push('/')} className="text-white/80 hover:text-white text-sm font-medium">
             ← Back to Library
           </button>
-          <h1 className="text-white font-bold text-lg">✨ Story Workshop</h1>
-          <div className="text-white/70 text-sm font-medium">Step {step + 1}/4</div>
+          <h1 className="text-white font-bold text-sm sm:text-lg text-center">✨ Story Workshop</h1>
+          <div className="text-white/70 text-xs sm:text-sm font-medium whitespace-nowrap">Step {step + 1}/4</div>
         </div>
       </header>
 
       {/* Progress Steps */}
-      <div className="max-w-4xl mx-auto px-6 py-6">
-        <div className="flex items-center gap-2">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 hide-scrollbar">
           {STEPS.map((s, i) => (
-            <div key={s} className="flex items-center gap-2 flex-1">
+            <div key={s} className="flex items-center gap-2 min-w-max flex-1">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shadow ${
                 i <= step ? 'bg-purple-500 text-white' : 'bg-white/60 text-gray-400'
               }`}>
                 {i < step ? '✓' : i + 1}
               </div>
-              <span className={`text-sm hidden sm:block font-medium ${i <= step ? 'text-gray-800' : 'text-gray-400'}`}>
+              <span className={`text-xs sm:text-sm font-medium whitespace-nowrap ${i <= step ? 'text-gray-800' : 'text-gray-400'}`}>
                 {s}
               </span>
-              {i < STEPS.length - 1 && <div className={`flex-1 h-0.5 ${i < step ? 'bg-purple-500' : 'bg-gray-300'}`} />}
+              {i < STEPS.length - 1 && <div className={`w-8 sm:w-12 h-0.5 ${i < step ? 'bg-purple-500' : 'bg-gray-300'}`} />}
             </div>
           ))}
         </div>
@@ -396,7 +396,7 @@ export default function CreateStoryPage() {
 
       {/* Error display */}
       {error && (
-        <div className="max-w-4xl mx-auto px-6 mb-4">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 mb-4">
           <div className="bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-xl text-sm shadow">
             ⚠️ {error}
           </div>
@@ -405,7 +405,7 @@ export default function CreateStoryPage() {
 
       {/* STEP 0: Premise */}
       {step === 0 && (
-        <div className="max-w-2xl mx-auto px-6">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6">
           <div className="bg-white/80 backdrop-blur-sm border-4 border-yellow-300 rounded-3xl p-5 sm:p-8 shadow-xl">
             <h2 className="text-gray-800 text-xl sm:text-2xl font-extrabold mb-2">💡 What's your story about?</h2>
             <p className="text-gray-500 mb-6">Describe your idea in a sentence or two. The AI will build a full story from it!</p>
@@ -447,7 +447,7 @@ export default function CreateStoryPage() {
             </div>
 
             <label className="text-gray-700 text-sm font-medium mb-2 block">Categories <span className="text-gray-400">(pick one or more)</span></label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
               {categories.map(cat => {
                 const isSelected = selectedCategories.includes(cat.id);
                 return (
@@ -531,7 +531,7 @@ export default function CreateStoryPage() {
 
       {/* STEP 1: Outline — Co-Author Mode */}
       {step === 1 && (
-        <div className="max-w-3xl mx-auto px-6">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <div className="bg-white/80 backdrop-blur-sm border-4 border-yellow-300 rounded-3xl p-5 sm:p-8 shadow-xl">
             <h2 className="text-gray-800 text-xl sm:text-2xl font-extrabold mb-2">
               {mode === 'write' ? '✏️ Write Your Story' : '✏️ Co-Author Mode'}
@@ -568,11 +568,11 @@ export default function CreateStoryPage() {
                 <div key={i} className={`bg-white border rounded-xl p-4 transition-all shadow-sm ${
                   editedByKid.has(i) ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200'
                 }`}>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                     <span className="text-purple-400 text-xs font-bold">
                       PAGE {i + 1} {editedByKid.has(i) && '⭐'}
                     </span>
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 flex-wrap">
                       <button
                         onClick={() => fixMyStory(i)}
                         disabled={fixingPage === i || !editedByKid.has(i)}
@@ -612,7 +612,7 @@ export default function CreateStoryPage() {
               ))}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setStep(0)}
                 className="px-6 py-3 bg-white text-gray-600 rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50"
@@ -636,7 +636,7 @@ export default function CreateStoryPage() {
 
       {/* STEP 2: Generating Images */}
       {step === 2 && (
-        <div className="max-w-3xl mx-auto px-6">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
           <div className="bg-white/80 backdrop-blur-sm border-4 border-yellow-300 rounded-3xl p-5 sm:p-8 text-center shadow-xl">
             <div className="text-5xl sm:text-6xl mb-4 animate-pulse">🎨</div>
             <h2 className="text-gray-800 text-xl sm:text-2xl font-extrabold mb-2">Creating Illustrations...</h2>
@@ -683,7 +683,7 @@ export default function CreateStoryPage() {
 
       {/* STEP 3: Review & Publish */}
       {step === 3 && (
-        <div className="max-w-4xl mx-auto px-6">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
           <div className="bg-white/80 backdrop-blur-sm border-4 border-yellow-300 rounded-3xl p-5 sm:p-8 shadow-xl">
             <h2 className="text-gray-800 text-xl sm:text-2xl font-extrabold mb-2">📖 Review Your Story</h2>
             <p className="text-gray-500 mb-6">Here&apos;s how it&apos;ll look! Make sure you&apos;re happy before publishing.</p>
@@ -761,7 +761,7 @@ export default function CreateStoryPage() {
               ))}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setStep(1)}
                 className="px-6 py-3 bg-white text-gray-600 rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50"
