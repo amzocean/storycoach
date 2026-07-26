@@ -7,7 +7,8 @@
 - **Repo:** https://github.com/amzocean/storycoach.git
 - **Local path:** `C:\Users\huseinm\storycoach`
 - **Forked from:** `C:\Users\huseinm\storynook` (the live **StorySparks** app, `storysparks.fun`)
-- **Status:** Early pivot. Baseline runs locally; homepage rebranded to "Story Coach". Core coach-first write flow **not yet built**.
+- **Status:** Coach-first write flow **built and live locally**, gamified (Duolingo-style challenges). AI coach contract implemented and verified. Next up: **accounts / save-resume / multiple parallel stories** (design decided, not yet built).
+- **⚠️ Name is a placeholder.** "Story Coach" / "Coach" is a working name only — the final product name is TBD. Keep all naming isolated and easy to swap (copy strings, not architecture).
 - **Source vision docs:** `Downloads\attachments.zip` — Product Vision, Product Specification, Pivot Strategy, Learning Journey, Experience/Emotional Journey, Story Coach Bible. This document synthesizes all six.
 
 ---
@@ -176,19 +177,25 @@ supabase-setup.sql   Schema + seeded categories (run in new Supabase project)
 
 **Problem:** `outline` = AI authors full pages. This is exactly what the pivot forbids.
 
-### 6.4 Target AI contract (coach-first)
-Keep the `/api/generate` route shell and **all safety layers**, but redefine actions:
+### 6.4 Target AI contract (coach-first) — ✅ IMPLEMENTED
+The `/api/generate` route shell and **all safety layers** are kept; actions were added
+(the legacy `outline`/generation actions still exist for reference but the homepage no
+longer routes to them). Implemented in `app/api/generate/route.ts` + `lib/openai.ts`:
 
 - **`coach-response`** — input: child's current text + story state (hero/setting/problem/stage).
-  Output: **praise + one guiding question** (+ optional one micro-tip). Never a paragraph.
-- **`review-story`** — input: completed page/draft. Output: **granular, one-at-a-time**
-  suggestions (spelling/grammar/punctuation/vocabulary/clarity) the child accepts or ignores.
+  Output: **praise + one guiding question** (+ optional one micro-tip + optional idea `choices`).
+  Never a paragraph. (`coachResponse` → `CoachReply {praise, question, tip?, choices?}`.)
+- **`review-story`** — input: completed pages. Output: `{celebration, strength, suggestions[]}` —
+  **granular, one-at-a-time** suggestions (spelling/grammar/punctuation/vocabulary/clarity)
+  the child accepts or ignores. (`reviewStory`.)
 - **`generate-illustration`** — input: **child-authored** page text only. Output: image URL.
-  Gated behind a per-page content threshold (the unlock loop).
+  Gated behind the per-page challenge completion (the unlock loop). Uses `describeSceneFromText`
+  to turn the child's words into an image prompt, then the existing image pipeline.
+- **`character-sheet`** — input: hero + name + custom description. Output: `{name, appearance, style}`
+  (`generateCharacterSheet`) for character consistency across page illustrations and the cover.
 
-**Enforcement:** strict prompt contracts + output-schema validation so the model cannot
-slip into authoring mode. Remove/disable any "full rewrite" / "Surprise Me full redraft"
-affordance in coach mode.
+**Enforcement:** strict prompt contracts + output-schema validation (JSON) so the model
+cannot slip into authoring mode. All new actions verified live (200 OK) against OpenAI.
 
 ### 6.5 Data model
 Keep existing tables — `stories`, `pages`, `categories` (+ `stories_with_page_count` view).
@@ -205,19 +212,66 @@ Define a minimum content threshold per page (length/quality). Generate page N's 
 `storage.ts` upload pipeline and character-consistency prompt logic. UI should visualize
 "write → unlock art" as a reward.
 
+### 6.7 Gamification layer (Duolingo-style) — ✅ IMPLEMENTED in `app/write/page.tsx`
+Every page of the story is framed as a **bite-sized skill challenge**, turning the
+Learning Journey (§4 "Eight Writing Muscles") into gameplay:
+- **`QUESTS` array** — each entry: `{skill, emoji, mission, target (word goal), xp, prompt(ctx)}`
+  cycling through writing muscles (💡 Imagination · 🎨 Description · ❤️ Emotion ·
+  🧠 Structure · 💬 Dialogue · 🌟 Confidence). `BONUS_QUEST` covers pages beyond the array.
+  `questFor(i)` picks the challenge for page `i`.
+- **XP & levels** — `xp` state; `levelFor(xp) = floor(xp/60)+1`. XP awarded when a page's
+  word count reaches the quest `target` (challenge complete, via `useEffect` watching the
+  `completed` set), **+20** on illustration unlock, **+5** per accepted review tip.
+- **Headline logic** — the coach's question is the page **headline**; before the coach has
+  replied, the quest's `prompt(ctx)` is the headline (`coach?.question ?? quest.prompt(ctx)`).
+- **Illustration unlock is gated on `challengeDone`** (words ≥ quest target), *not* a flat
+  word count — writing effort literally unlocks the reward.
+- **UI:** XP bar + level, quest medals for completed challenges, a "current challenge" chip,
+  a word-goal progress bar, and a celebration **toast** (`fireToast` + auto-clear `useEffect`,
+  ~2600ms) fired on challenge complete / unlock / accepted tip.
+
+This stays inside the V1 exclusion list: it rewards **effort** (words written, challenges
+completed, stories finished) — never time-on-app, streaks-for-time, or social competition.
+
+### 6.8 Accounts / save-resume / multiple parallel stories — 🔜 NEXT (design decided)
+**Requirement (user):** kids can save a story and continue the next day, and have multiple
+stories running in parallel — an "account" perspective.
+
+**Current gap:** stories only persist to Supabase **on publish** (`stories` + `pages`).
+The entire `/write` flow (hero, name, setting, problem, pages, XP, current challenge) lives
+in React state and is **lost on refresh**. There is no draft, no resume, no per-kid ownership.
+
+**Chosen approach (pending final confirm on identity): lightweight local profiles first.**
+- A friendly **"Who's writing today?"** avatar/name picker. The profile ID lives in the
+  browser (localStorage) and **tags every draft/story** — no email, no password, **no PII**
+  (avoids COPPA/kid-privacy burden). Real parent-gated auth can layer on later **without
+  reworking the data model** (profile ID → user ID migration).
+- **Draft persistence / auto-save:** new additive Supabase table (e.g. `drafts`) storing the
+  full write-flow state as JSON (hero/name/setting/problem, pages, xp, completed set, current
+  page, characterSheet) keyed by `profile_id` + `story_id`, with `status = draft`. Auto-save
+  on each meaningful step; resume restores exact state.
+- **"My Books" shelf:** lists in-progress **Drafts** *and* **Published** books for the active
+  profile; tapping a draft resumes `/write` where they left off. This is what makes multiple
+  parallel stories work.
+
+**Open decision when resuming:** confirm identity model — (A) lightweight local profiles
+*(recommended)*, (B) full Supabase Auth now, or (C) device-level drafts with no profiles.
+Build order once chosen: `drafts` table → auto-save/resume in `/write` → My Books shelf.
+
 ---
 
 ## 7. Phased Build Plan
 
 | Phase | Scope | Key files |
 |------|-------|-----------|
-| **0 — Env setup** *(done)* | New repo + isolated Vercel/Supabase, env vars, optional `COACH_MODE` flag | `.env.local`, `supabase-setup.sql` |
-| **1 — Coach-first Write flow** | Replace generation wizard with Hero → Name → Setting → Problem → First sentence → guided loop | `app/admin/create/page.tsx` (or a new `app/write` route) |
-| **2 — AI contract pivot** | `coach-response`, `review-story`, `generate-illustration`; keep safety layers | `app/api/generate/route.ts`, `lib/openai.ts` |
-| **3 — Illustration unlock** | Per-page thresholds; art as reward | `api/generate`, `lib/storage.ts` |
-| **4 — Data model** | `coach_sessions`, `progress_events`, story status fields | `supabase-setup.sql` |
+| **0 — Env setup** *(✅ done)* | New repo + isolated Vercel/Supabase, env vars, optional `COACH_MODE` flag | `.env.local`, `supabase-setup.sql` |
+| **1 — Coach-first Write flow** *(✅ done)* | Hero → Name → Setting → Problem → First sentence → guided loop, as a new `/write` route | `app/write/page.tsx` |
+| **2 — AI contract pivot** *(✅ done)* | `coach-response`, `review-story`, `generate-illustration`, `character-sheet`; safety layers kept | `app/api/generate/route.ts`, `lib/openai.ts` |
+| **3 — Illustration unlock** *(✅ done)* | Gated on challenge completion; art as reward | `api/generate`, `lib/storage.ts`, `app/write/page.tsx` |
+| **3.5 — Gamification** *(✅ done)* | Duolingo-style per-page skill challenges, XP/levels, medals, goal bar, toasts | `app/write/page.tsx` |
+| **4 — Accounts + data model** *(🔜 next)* | Profiles + `drafts` table (save/resume, multiple parallel stories); later `coach_sessions`/`progress_events` | `supabase-setup.sql`, `app/write/page.tsx` |
 | **5 — Read + My Books** | 3-tab nav; technique snippets; Drafts/Finished/Published/PDF; Write CTA everywhere | `app/page.tsx`, new `My Books` route |
-| **6 — Review/Publish/Credits** | One-at-a-time review UI; "Written by `<Child>` · Illustrated with Story Coach" | reader/publish/pdf |
+| **6 — Review/Publish/Credits** | One-at-a-time review UI; "Written by `<Child>` · Illustrated with `<Product>`" | reader/publish/pdf |
 | **7 — Rollout** | Beta on preview domain → validate metrics → attach final domain; keep legacy as fallback | infra |
 
 ### Risks & mitigations
@@ -231,17 +285,34 @@ Define a minimum content threshold per page (length/quality). Generate page N's 
 ## 8. Current Status & Next Actions
 
 **Done**
-- Forked storynook → storycoach; pushed to GitHub `main`; `npm install`.
-- New Supabase project created; `supabase-setup.sql` run; public `story-images` bucket.
-- `.env.local` created; Supabase keys set.
-- Homepage (`app/page.tsx`) rebranded to **Story Coach** (quest/XP theme, Quest Board stats, coach-first "Coach Guide" copy). `app/admin/create/page.tsx` got responsive polish. *(Both uncommitted.)*
-- Baseline verified running locally: `npm run dev` → `http://localhost:3000`, `/api/categories` 200, `/api/stories` 200 (empty DB).
+- Forked storynook → storycoach; pushed to GitHub `main`.
+- New Supabase project + `supabase-setup.sql` run; public `story-images` bucket.
+- `.env.local`: Supabase keys **and** `OPENAI_API_KEY` (sk-proj) set and **verified live** (200 OK).
+- Homepage (`app/page.tsx`) rebranded to **Story Coach**; all CTAs repointed to `/write`.
+- **Coach-first `/write` flow built** (`app/write/page.tsx`): Welcome → Hero → Name → Setting →
+  Problem → guided writing loop → review → publish → done. Coach question is the page headline.
+- **Coach AI layer implemented + verified** (`lib/openai.ts` + `/api/generate`):
+  `coach-response`, `review-story`, `generate-illustration`, `character-sheet`; all safety layers kept.
+- **Illustration unlock** gated on challenge completion.
+- **Gamification** (Duolingo-style): per-page skill challenges, XP/levels, quest medals,
+  word-goal bar, celebration toasts. Typecheck clean; `/write` serves 200.
 
-**Blockers / TODO before core work**
-- ⚠️ **`OPENAI_API_KEY` is empty in `.env.local`** — AI coach + illustrations will fail until set.
-- Commit the pending rebrand edits.
+**Commits (pushed to `main`)**
+- `063b555` — context doc + homepage rebrand
+- `3e52f66` — coach-first Write flow (Phase 1 + 2)
+- `eda2559` — coach prompt as main headline
+- `15e426f` — gamify the write flow
 
-**Immediate next step (the real pivot):** Phase 1 — build the coach-first Write flow, then Phase 2 — swap the AI action contract to `coach-response` / `review-story` / `generate-illustration`.
+**Immediate next step:** Phase 4 — **accounts / save-resume / multiple parallel stories**
+(see §6.8). Confirm identity model (recommended: lightweight local profiles), then build
+`drafts` table → auto-save/resume in `/write` → **My Books** shelf.
+
+**Notes / gotchas**
+- ⚠️ **npm registry is BLOCKED by IT** ("[TE] NPM URL Block") — cannot `npm install`. Reuse
+  packages already in `node_modules`. Verify builds with `npx --no-install tsc --noEmit`.
+- Product **name is a placeholder** ("Story Coach"/"Coach") — keep swappable.
+- Git commits use the work identity (`huseinm@microsoft.com`, machine default).
+- Legacy `/admin/create` generator still exists as reference; homepage no longer links to it.
 
 ---
 
