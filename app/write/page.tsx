@@ -323,6 +323,14 @@ export default function WritePage() {
   const words = page ? wordCount(page.text) : 0;
   const canUnlock = words >= WORDS_TO_UNLOCK && !page?.image_path && !page?.illustrating;
 
+  // The coach always leads with a prompt as the headline.
+  const firstPrompt = `Let's begin! Write one sentence to introduce ${heroName || 'your hero'} the ${hero || 'hero'} in ${setting || 'your world'}.`;
+  const headlinePrompt = coach?.question
+    ? coach.question
+    : current === 0
+    ? firstPrompt
+    : `What happens next for ${heroName || 'your hero'}?`;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-300 via-sky-200 to-emerald-100 pb-24">
       <header className="sticky top-0 z-50 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 shadow-lg px-4 sm:px-6 py-3 sm:py-4">
@@ -478,14 +486,22 @@ export default function WritePage() {
 
             <div className="bg-white/85 backdrop-blur-sm border-4 border-yellow-300 rounded-3xl p-5 sm:p-7 shadow-xl">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-extrabold text-gray-800">📖 Page {current + 1}</h2>
+                <span className="text-xs font-extrabold tracking-wide text-purple-400">PAGE {current + 1}</span>
                 <span className="text-xs text-gray-400">{words} words</span>
+              </div>
+
+              {/* Coach prompt — the main headline */}
+              <div className="flex items-start gap-3 mb-4">
+                <span className="text-3xl sm:text-4xl shrink-0">🦉</span>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-gray-800 leading-snug">
+                  {headlinePrompt}
+                </h2>
               </div>
 
               <textarea
                 value={page.text}
                 onChange={(e) => updateText(e.target.value)}
-                placeholder={current === 0 ? `Write one sentence to start… e.g. "${heroName} the ${hero} woke up in ${setting}."` : 'What happens next? Write it in your own words…'}
+                placeholder="Write your words here…"
                 className="w-full min-h-[140px] p-4 rounded-2xl border-2 border-gray-200 focus:border-purple-400 outline-none text-gray-800 text-lg leading-relaxed resize-y"
                 autoFocus
               />
@@ -533,14 +549,13 @@ export default function WritePage() {
               )}
             </div>
 
-            {/* coach panel */}
+            {/* coach panel — praise + optional tip/ideas (the question is the headline above) */}
             {coach && (
               <div className="mt-4 bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-3xl p-5 shadow-lg">
                 <div className="flex items-start gap-3">
-                  <div className="text-3xl">🦉</div>
+                  <div className="text-3xl">🎉</div>
                   <div className="flex-1">
                     <p className="text-purple-800 font-bold">{coach.praise}</p>
-                    <p className="text-gray-700 mt-2">💭 {coach.question}</p>
                     {coach.tip && <p className="text-gray-500 text-sm mt-2">✨ Tiny tip: {coach.tip}</p>}
                     {coach.choices && coach.choices.length > 0 && (
                       <div className="mt-3">
