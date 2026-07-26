@@ -243,6 +243,188 @@ Return a JSON array: [{"pageNumber": N, "imageDescription": "..."}]`
   return JSON.parse(cleaned);
 }
 
+// ============================================================================
+// STORY COACH (pivot) — AI coaches, it never authors.
+// See STORY_COACH_CONTEXT.md. Rules: child is always the author; praise before
+// correction; ask, don't tell; one improvement at a time; never write paragraphs.
+// ============================================================================
+
+export interface CoachStoryState {
+  hero: string;
+  heroName: string;
+  setting: string;
+  problem: string;
+  ageLevel?: number; // 1-3 (5-7), 2 (8-10), 3 (11-13) — see detail below
+}
+
+const coachAgeGuidance: Record<number, string> = {
+  1: 'Ages 5-7: very short prompts, lots of encouragement, focus on imagination, minimal corrections.',
+  2: 'Ages 8-10: introduce story structure, encourage dialogue, teach description, light grammar.',
+  3: 'Ages 11-13: richer vocabulary, character motivation, plot twists, revision skills.',
+};
+
+// Coach the child forward: praise + ONE guiding question (+ optional tiny tip).
+// NEVER writes the next sentence/paragraph for the child.
+export async function coachResponse(
+  state: CoachStoryState,
+  currentPageText: string,
+  storySoFar: string
+): Promise<{ praise: string; question: string; tip?: string; choices?: string[] }> {
+  const age = coachAgeGuidance[state.ageLevel || 1];
+  try {
+    const res = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are Story Coach — a warm, encouraging writing coach for a child. You feel like a favorite teacher, supportive parent, and curious friend. You NEVER a critic, chatbot, or lecturer.
+
+ABSOLUTE RULES (never break):
+1. The child is ALWAYS the author. NEVER write the story, a sentence, or a paragraph for them.
+2. Praise FIRST — always begin with something genuine about what they wrote.
+3. Ask, don't tell. Offer ONE guiding question that helps them add more (e.g. "What does the forest smell like?" not "Add description.").
+4. ONE improvement at a time. Never overwhelm.
+5. If the child seems stuck (very short or empty text), offer 3-4 idea CHOICES for what could happen next, but make clear THEY still choose or invent their own. Never pick for them.
+6. Keep it short, playful, and age-appropriate. ${age}
+
+Return ONLY JSON: {"praise": "...", "question": "...", "tip": "(optional, one tiny, gentle suggestion — omit if not needed)", "choices": ["(optional 3-4 short what-happens-next ideas, only when the child is stuck)"]}`,
+        },
+        {
+          role: 'user',
+          content: `Story so far: hero is ${state.heroName} (a ${state.hero}), in ${state.setting}, facing this problem: ${state.problem}.
+Full draft so far: "${storySoFar || '(nothing yet)'}"
+What the child just wrote on this page: "${currentPageText || '(blank — they are stuck and need gentle ideas)'}"
+
+Respond as the coach. Celebrate their effort, then ask ONE question to help them keep writing. Never write their story for them.`,
+        },
+      ],
+      temperature: 0.8,
+      max_tokens: 300,
+    });
+    const content = res.choices[0].message.content || '{}';
+    const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    return {
+      praise: parsed.praise || 'I love where this is going!',
+      question: parsed.question || 'What happens next?',
+      tip: parsed.tip || undefined,
+      choices: Array.isArray(parsed.choices) && parsed.choices.length ? parsed.choices : undefined,
+    };
+  } catch {
+    return { praise: 'Great work so far! ✨', question: 'What happens next in your story?' };
+  }
+}
+
+// Review the child's FINISHED draft. Returns granular, one-at-a-time suggestions
+// the child can accept or ignore. Praise before correction; never rewrites wholesale.
+export interface CoachSuggestion {
+  pageNumber: number;
+  type: 'spelling' | 'grammar' | 'punctuation' | 'vocabulary' | 'clarity';
+  original: string;
+  suggestion: string;
+  why: string;
+}
+export async function reviewStory(
+  pages: { pageNumber: number; text: string }[]
+): Promise<{ celebration: string; strength: string; suggestions: CoachSuggestion[] }> {
+  try {
+    const res = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: `You are Story Coach reviewing a child's finished story. Follow the feedback formula: (1) celebrate, (2) highlight ONE genuine strength, (3) offer small, specific suggestions the child can accept or ignore. NEVER rewrite whole pages. NEVER be harsh. Keep the child's voice and ideas intact.
+
+Each suggestion must be tiny and targeted: fix a specific spelling/grammar/punctuation issue, or gently offer a stronger word/clearer phrasing. Quote the exact original snippet and the improved snippet. Keep the child's meaning.
+
+Return ONLY JSON: {"celebration": "warm celebration of finishing", "strength": "one genuine strength you noticed", "suggestions": [{"pageNumber": N, "type": "spelling|grammar|punctuation|vocabulary|clarity", "original": "exact snippet", "suggestion": "improved snippet", "why": "short kid-friendly reason"}]}
+Return at most 8 suggestions total, prioritizing the most helpful. If the writing is already great, return few or none.`,
+        },
+        {
+          role: 'user',
+          content: `Here is the child's story:\n${pages.map((p) => `Page ${p.pageNumber}: "${p.text}"`).join('\n')}`,
+        },
+      ],
+      temperature: 0.4,
+    });
+    const content = res.choices[0].message.content || '{}';
+    const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    return {
+      celebration: parsed.celebration || 'You finished a real story! 🎉',
+      strength: parsed.strength || 'Your imagination really shines here.',
+      suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
+    };
+  } catch {
+    return { celebration: 'You finished a real story! 🎉', strength: 'Your imagination really shines here.', suggestions: [] };
+  }
+}
+
+// Build a fixed character sheet ONCE from the child's setup, so every unlocked
+// illustration stays visually consistent. Does not author the story.
+export async function generateCharacterSheet(
+  hero: string,
+  heroName: string,
+  setting: string
+): Promise<{ name: string; appearance: string; style: string }> {
+  try {
+    const res = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You design a consistent visual for a children's book character. Given a hero type, name, and setting, invent a friendly, fixed appearance for illustrations.
+Return ONLY JSON: {"name": "the name", "appearance": "detailed fixed physical look — NO names, describe only how they look, e.g. 'a small green dragon with big friendly eyes, tiny wings, and a round belly'", "style": "bright watercolor storybook illustration"}`,
+        },
+        { role: 'user', content: `Hero: ${hero}. Name: ${heroName}. Setting: ${setting}.` },
+      ],
+      temperature: 0.7,
+      max_tokens: 200,
+    });
+    const content = res.choices[0].message.content || '{}';
+    const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleaned);
+    return {
+      name: parsed.name || heroName,
+      appearance: parsed.appearance || `a friendly ${hero}`,
+      style: parsed.style || 'bright watercolor storybook illustration',
+    };
+  } catch {
+    return { name: heroName, appearance: `a friendly ${hero}`, style: 'bright watercolor storybook illustration' };
+  }
+}
+
+// Turn the CHILD'S written page text into an illustration description (no names).
+// Used for the illustration-unlock reward — art comes from what the child wrote.
+export async function describeSceneFromText(
+  pageText: string,
+  storyContext: string,
+  characterSheet?: { name: string; appearance: string; style: string }
+): Promise<string> {
+  const charDesc = characterSheet
+    ? `Main character always looks like: ${characterSheet.appearance}. Art style: ${characterSheet.style}.`
+    : '';
+  try {
+    const res = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an illustrator's assistant for a children's storybook. Given the child's page text, write ONE vivid image description an illustrator can draw.
+${charDesc}
+RULES: never use character names (say "the dragon", "the child"); include the character's fixed appearance for consistency; capture the scene, pose, setting, and mood in 2-3 sentences. Return ONLY the description text, no JSON, no quotes.`,
+        },
+        { role: 'user', content: `Story context: ${storyContext}\n\nThis page: "${pageText}"` },
+      ],
+      temperature: 0.7,
+      max_tokens: 200,
+    });
+    return (res.choices[0].message.content || pageText).trim();
+  } catch {
+    return pageText;
+  }
+}
+
 export async function generateCoverImage(title: string, description: string, category: string, characterSheet?: { name: string }): Promise<string> {
   // Sanitize names from title/description to avoid DALL-E safety rejections
   let safeTitle = title;

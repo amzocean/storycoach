@@ -130,7 +130,7 @@ export default function HomePage() {
               Coach Guide
             </button>
             <Link
-              href="/admin/create"
+              href="/write"
               className="px-5 sm:px-6 py-2.5 sm:py-3 bg-yellow-400 hover:bg-yellow-300 text-gray-900 rounded-full text-sm sm:text-base font-extrabold transition-all shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 animate-pulse hover:animate-none whitespace-nowrap"
               title="Create Story"
             >
@@ -169,7 +169,7 @@ export default function HomePage() {
               </div>
             </div>
             <Link
-              href="/admin/create"
+              href="/write"
               className="inline-flex items-center gap-2 px-8 sm:px-10 py-3.5 sm:py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white font-extrabold rounded-full text-base sm:text-lg shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all"
             >
               {storyCta}
@@ -408,7 +408,7 @@ export default function HomePage() {
                 Child voice stays first. Use AI as a helper, not a replacement, and celebrate every page your child writes.
               </p>
               <Link
-                href="/admin/create"
+                href="/write"
                 onClick={() => setShowHowItWorks(false)}
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-full text-sm shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all"
               >
